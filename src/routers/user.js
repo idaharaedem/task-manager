@@ -2,6 +2,8 @@ const express = require('express')
 const router = new express.Router()
 const User = require('../models/users')
 const authentication = require('../middleware/authentication')
+const multer = require('multer')
+const sharp = require('sharp')
 
 router.post('/users', async (req, res) => {
     const user = new User(req.body)
@@ -99,7 +101,7 @@ router.post('/users', async (req, res) => {
      // })
 //  })
  
- router.put('/users/:id', async (req, res)=> {
+ router.put('/users/me', authentication, async (req, res)=> {
      const update = Object.keys(req.body)
      const allowed = ['name', 'email', 'password', 'age']
      const isValidUpdate = update.every((up)=> {
@@ -115,19 +117,13 @@ router.post('/users', async (req, res) => {
          //This updadate bypasses our middleware so we need to do a few altications
          //const user = await User.findByIdAndUpdate(req.params.id, req.body, {new:true, runValidators: true})
 
-         const user = await User.findById(req.params.id)
-
          update.forEach((up) => {
-             user[up] = req.body[up]
+             req.user[up] = req.body[up]
          })
 
-         await user.save()
+         await req.user.save()
  
-         if(!user) {
-             return res.status(404).send()
-         }
- 
-         res.status(200).send(user)
+         res.status(200).send(req.user)
  
      }
      catch(err) {
@@ -150,6 +146,58 @@ router.post('/users', async (req, res) => {
      }
      catch(err) {
          res.status(500).send()
+     }
+ })
+
+ const upload = multer({
+     limits: {
+         fileSize: 2000000
+     },
+     fileFilter(req, file, callback) {
+        
+        if(!file.originalname.match(/\.(jpg|png|jpeg)$/)) {
+            return callback(new Error('please upload relevant an image'))
+        }
+
+        callback(undefined, true)
+        //callback(undefined, true)
+     }
+ })
+
+
+ router.post('/users/me/avatar', authentication ,upload.single('upload') , async (req, res)=> {
+     
+     const buffer = await sharp(req.file.buffer).resize({width: 250, height: 250}).png().toBuffer()
+    req.user.avatar = buffer
+
+
+     await req.user.save()
+     res.send()
+ }, (error, req, res, next) => {
+     res.status(400).send({error: error.message})
+ })
+
+ router.delete('/users/me/avatar', authentication, async (req, res) => {
+    req.user.avatar = undefined 
+    
+    await req.user.save()
+
+    res.send()
+ })
+
+ router.get('/users/:id/avatar', async(req, res) => {
+     try{
+        const user = await User.findById(req.params.id)
+
+        if(!user || !user.avatar) {
+            throw new Error()
+        }
+
+        res.set('Content-Type', 'image/png')
+        res.send(user.avatar)
+     }
+     catch(err) {
+         res.status(404).send(err)
      }
  })
 

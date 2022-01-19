@@ -2,6 +2,7 @@ const mongoose = require('mongoose')
 const validator = require('validator')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const Task = require('../models/tasks')
 
 //creating schema for middleware instead of passing into mongoose.model directly
 const userSchema = new mongoose.Schema({
@@ -48,7 +49,23 @@ const userSchema = new mongoose.Schema({
             type: String,
             require: true
         }
-    }]
+    }],
+    avatar: {
+        type: Buffer
+    }
+    //second schema
+ }, {
+    timestamps: true
+ })
+
+
+
+ //a relationship between two entities.... Not stored on the database
+ userSchema.virtual('tasks', {
+     ref: 'Task',
+     localField: '_id',
+     // name of the field of the task that will create the relationship
+     foreignField: 'owner'
  })
 
  //.statics allows you to add on the model before it eventually comes down to hashing
@@ -95,6 +112,15 @@ userSchema.pre('save', async function(next) {
         user.password = await bcrypt.hash(user.password, 8)
     }
     next()
+})
+
+//Delete user tasks when user is removed
+userSchema.pre('remove', async function(next) {
+    const user = this
+    await Task.deleteMany({owner: user._id})
+
+    next()
+
 })
 
 const User = mongoose.model('User', userSchema)
