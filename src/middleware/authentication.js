@@ -5,7 +5,7 @@ const User = require('../models/users')
 const authentication = async (req, res, next) => {
     try{
         const token = req.header('Authorization').replace('Bearer ', '')
-        const isValidDecode = jwt.verify(token, 'nodecoursecontent')
+        const isValidDecode = jwt.verify(token, process.env.JWT_TOKEN)
 
         const user = await User.findOne({_id: isValidDecode._id, 'tokens.token': token})
        
@@ -14,10 +14,10 @@ const authentication = async (req, res, next) => {
         }
         
         req.user = user
+        req.token = token
         next()
     }
     catch (err){
-        console.log(err)
         res.status(401).send({error: 'Please authenticate'})
     }
     

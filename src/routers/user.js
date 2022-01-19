@@ -4,12 +4,14 @@ const User = require('../models/users')
 const authentication = require('../middleware/authentication')
 const multer = require('multer')
 const sharp = require('sharp')
+const {sendWelcomeEmail, cancelEmail} = require('../emails/account')
 
 router.post('/users', async (req, res) => {
     const user = new User(req.body)
     try{
         
      await user.save()
+     sendWelcomeEmail(user.email, user.name)
      const token = await user.generateAuthToken()
      res.status(200).send({user, token})
     }
@@ -21,6 +23,7 @@ router.post('/users', async (req, res) => {
  router.post('/users/login', async(req, res) => {
     try{
         const user = await User.findByCredentials(req.body.email, req.body.password)
+
         const token = await user.generateAuthToken()
         res.send({user, token})
     }
@@ -139,13 +142,15 @@ router.post('/users', async (req, res) => {
         // if(!user) {
         //     return res.status(400).send(res)
         // }
-
+        
         await req.user.remove()
- 
+        cancelEmail(req.user.email, req.user.name)
+
         res.status(200).send(req.user)
      }
      catch(err) {
-         res.status(500).send()
+         console.log(err)
+         res.status(500).send(err)
      }
  })
 
